@@ -1,0 +1,79 @@
+\subsection{Implementation}
+The implementation and some design issues of the required modules for 
+this exercise is 
+described within the following subsections.
+
+\subsubsection{Branch and jump}
+One of the challenges with pipelining is branch and jump instructions, since 
+it interrupts the flow of instructions in the pipeline.
+
+In our implementation of branching we predict branch taken, since this will 
+be the best optimization for for- and while-loops. Thus a branch instruction 
+will cause the PC register to branch on the decode stage, and if the 
+prediction 
+was wrong it will branch back to the correct instruction. This is done by 
+inspecting the branch signal and the ALU\_op.Zero on the memory stage. If the 
+prediction is wrong; we update the PC, set the control signals to the two 
+former instructions to low, and signal the if\_id\_reg to no-op the next 
+instruction.
+
+Jumps are implemented by performing the jump in the decode stage, and simply 
+bubbling the next instruction that comes from the instruction memory.  
+
+\subsubsection{Fetch and Decode Register}
+The point of the \textit{if\_id\_reg} is to provide support for no-ops and stalling 
+instructions. No-ops are performed when the CPU is branching back after
+a wrongly predicted branch. Stalling is performed when an instruction
+needs to wait for a load. 
+
+The compiler provides two warnings when synthesizing this component, 
+because the \textit{proc\_enable}, \textit{no\_op} and \textit{if\_id\_write}
+to the  sensitivity list. This is done on purpose, because we do not
+want the current instruction in the decode stage to be updated when 
+these signals are set.
+
+\subsubsection{Decode and Execute Register}
+The \textit{id\_ex\_reg} transfers all the signals from the decode stage to the 
+execute stage. It also provides support for bubbling instructions due to 
+branching back, a load dependency or jump. 
+
+\subsubsection{Execute and Memory Register}
+The \textit{ex\_mem\_reg} transfers all the signals from the execute stage, and 
+provides support for bubbling instructions due to branch back. 
+
+\subsubsection{Program Counter Register}
+The program counter registers task is to increment the PC address, perform 
+jumps, branches and branch backs. For jump and branch it receives all the 
+signals it needs from the decode stage (control signals and addresses) to 
+calculate the next instruction address. The signals it needs to decide 
+whether to branch back or not it will receive from the memory stage. If a 
+branch back is performed, it will signal the \textit{if\_id\_reg}, the 
+\textit{id\_ex\_reg} and 
+the \textit{ex\_mem\_reg} to perform no ops. 
+
+\subsubsection{Control Unit}
+This unit works more or less the same as in the last assignment.
+The only exception is that it now keeps its own state, and that it
+does not signal the PC register whether it should write or 
+not.
+
+\subsubsection{Hazard Detection Unit}
+This unit detects when there is a load dependency, which makes it signal the 
+\textit{if\_id\_reg}
+not to update the current instruction on the next cycle. Then it stalls the 
+PC register and bubbles the current instruction in decode. The unit also
+ signals the 
+\textit{ex\_mem\_reg} to bubble the current instruction when a jump has been 
+performed.
+
+\subsubsection{Forwarding unit}
+This unit forwards data to the execution stage if one of the parameters of the ALU 
+depends on the two previous instructions. It can forward the write back data 
+from both the ALU result in the memory stage or the write back data in the 
+write back stage. 
+
+\subsubsection{Register File}
+We edited the register file to write back on falling edge. Thus making it 
+possible to update a register, and propagate the new value to the execution 
+stage in one clock cycle. This reduces the architecture complexity, since we 
+do not need to stall instructions due to write back dependencies.

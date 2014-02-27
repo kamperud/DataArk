@@ -1,0 +1,41 @@
+\section{Discussion}\label{discussion}
+Thanks to the experience we gained from the last assignment, this one went a 
+lot easier. But we still recognize that pipelining is a difficult and complex 
+task, and thus have tried to keep the design as simple as possible. 
+
+We feel like we have managed to keep the architecture complexity decently low,
+due to our focus on abstracting as much as possible. This was the thought
+behind making all the pipeline registers and components separate entities, 
+thus providing a clean RTL schematic. Also adding a prefix to all the signals 
+and components representing which stage in the pipeline they are used (e.g. 
+ex\_SIGNAL\_NAME for the execute stage). 
+
+Our branch prediction is very simple: predict branch taken. Since it goes out 
+of the scope of this assignment to implement a sophisticated branch 
+predictor, we decided that branch taken was the best, due to for and while 
+loops.  
+
+From the previous assignment we learned to not underestimate testing, 
+something which has helped us quite a lot in this assignment. We have focused 
+heavily on testing each and every component to make sure that they are
+ working 
+correctly and see how they interact with each other. We even made an entity to test the interaction between the PC register, instruction memory and the if
+\_id\_register. 
+
+Debugging was quite challenging at times due to the fact that the signals 
+were at different stages. This led to some misunderstanding at times, and 
+thus wrong conclusion. But after being really careful when interpreting the 
+signals, things worked out well in the end.
+
+We prioritized simulation, and spent a lot more time to thoroughly test 
+and simulate the design in ModelSim \textit{before} we tried to run
+the design on the FPGA. We also got the impression from the previous exercise
+that the most important part of the problem was the design, implementation and
+simulation, not necessarily the results on the FPGA.
+
+We spent a lot of time trying to program the FPGA during the last assignment, but
+we did not get any satisfying results. This was not very motivating and was part
+of the reason for not trying to program the FPGA during this assignment. 
+However, we are confident on the simulated results and we believe that it should
+require little bug-fixes and improvements to the logic to get it to work
+on the FPGA. 
