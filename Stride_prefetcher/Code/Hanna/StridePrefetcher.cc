@@ -8,8 +8,8 @@
 // Stride prefetcher implemented with an array
 // (it might need to be upgraded to a hash table to work properly)
 #include "interface.hh"
-#define SIZE 100
-#define K 1;
+#define SIZE 100    //size of initial array and added extension of that array
+#define K 1;        //number of prefetch requests for every miss
 
 typedef struct array_entry{
     int PC;
@@ -70,7 +70,27 @@ void prefetch_access(AccessStat stat)
         int new_stride = stat.mem_addr - array[index].prev_address;
         //If the stride is zero we don't need to do anything (I think...)
         if (new_stride!=0){
-            
+            //If this is the first time we see a stride
+            if (new_stride!=array[index].stride){
+                array[index].stride = new_stride;
+                array[index].prev_address = stat.mem_addr;
+                array[index].status = false;
+            }
+            else {
+                //We see a stride for the second time
+                array[index].status = true;
+                array[index].prev_address = stat.mem_addr;
+                //if there wasn't a miss on this then the next is probably also in memory so we don't prefetch
+                if(stat.miss) {
+                    Addr pf_addr;
+                    for (int i=0; i<K; i++){
+                        pf_addr = stat.prev_address + i*array[index].stride;
+                        if (!in_cache(pf_addr)&&!in_mshr_queue(pf_addr)) {
+                            issue_prefetch(pf_addr);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -78,9 +98,7 @@ void prefetch_access(AccessStat stat)
      * Issue a prefetch request if a demand miss occured,
      * and the block is not already in cache.
 //     */
-//    if (stat.miss && !in_cache(pf_addr)) {
-//        issue_prefetch(pf_addr);
-//    }
+//
 }
 
 void prefetch_complete(Addr addr) {
