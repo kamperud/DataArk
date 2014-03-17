@@ -7,11 +7,14 @@
 #include "interface.hh"
 
 
+static std::map<Addr, Predictor*> predictor_table;
+static Addr prev_mem_addr;
+
 void prefetch_init(void)
 {
     /* Called before any calls to prefetch_access. */
     /* This is the place to initialize data structures. */
-
+    prev_mem_addr = NULL;
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
@@ -19,6 +22,8 @@ void prefetch_access(AccessStat stat)
 {
     /* pf_addr is now an address within the _next_ cache block */
     Addr pf_addr = stat.mem_addr + BLOCK_SIZE;
+
+
 
     /*
      * Issue a prefetch request if a demand miss occured,
