@@ -6,20 +6,77 @@
 
 #include "interface.hh"
 
+#define PRED_TABLE_MAX_SIZE 100
+#define PRED_TABLE_ROW_SIZE 5
 
-static std::map<Addr, Predictor*> predictor_table;
-static Addr prev_mem_addr;
+static std::map<Addr, Predictor_row*> predictor_table;
+
+void insert_predictor_table(Addr mem_addr, Addr prev_pc) {
+    std::map<Addr, Predictor_row*>::iterator it;
+    it = predictor_table.find(prev_pc);
+    if (predictor_table.size >= PRED_TABLE_MAX_SIZE)
+        return;
+    else if (it == predictor_table.end()) {
+        Predictor_entry *entry = (Predictor_entry*)malloc(sizeof(Predictor_entry));
+        entry->mem_addr = mem_addr;
+        entry->next = NULL;
+
+        Predictor_row *row = (Predictor_row*)malloc(sizeof(Predictor_entry));
+        row->first = entry;
+        row->nof_entries = 1;
+        row->last_evicted = 0;
+
+        predictor_table.insert( std::pair<Addr, Predictor_row*>(prev_pc, row) );
+    }
+    else {
+        Predictor_row *row = it->second;
+        if (row->nof_entries >= PRED_TABLE_MAX_SIZE) {
+            Predictor_entry *replace_entry = row->first;
+            for (int i = 0; i < row->last_evicted; i++) {
+                replace_entry = replace_entry->next;
+            }
+            replace_entry->mem_addr = mem_addr;
+            row->last_evicted++;
+            if (row->last_evicted == PRED_TABLE_ROW_SIZE) row->last_evicted = 0;
+        }
+        else {
+            Predictor_entry *last_entry = row->first;
+            for (int i = 0; i < row->nof_entries-1; i++) {
+                last_entry = last_entry->next;
+            }
+
+            Predictor_entry *new_entry = (Predictor_entry*)malloc(sizeof(Predictor_entry));
+            new_entry->mem_addr = mem_addr;
+            new_entry->next = NULL; 
+
+            last_entry->next = new_entry;
+        }
+    }
+
+
+
+
+}
 
 void prefetch_init(void)
 {
     /* Called before any calls to prefetch_access. */
     /* This is the place to initialize data structures. */
-    prev_mem_addr = NULL;
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
 void prefetch_access(AccessStat stat)
 {
+    static Addr prev_pc;
+
+    if (predictor_table.empty()) {
+        prev_pc = stat.pc;
+        insert_predictor_table(stat.mem_addr + BLOCK_SIZE, prev_pc);
+    }
+    else if (stat.miss) {
+        insert_predictor_table(stat.mem_addr, prev_pc);
+        prev_pc = stat.pc;
+    }
     /* pf_addr is now an address within the _next_ cache block */
     Addr pf_addr = stat.mem_addr + BLOCK_SIZE;
 

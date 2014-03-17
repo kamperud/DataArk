@@ -2,6 +2,7 @@
 /* DO NOT MODIFY THIS FILE */
 
 #include <stdint.h>
+#include <map>
 
 /*
  * This makes the DPRINT macro and all trace flags available.
@@ -42,6 +43,17 @@ struct AccessStat {
     Tick time;      /* The simulator time cycle when the request was sent */
     int miss;       /* Was this demand access a cache hit (0) or miss (1)? */
 };
+
+typedef struct {
+	Predictor_entry *first; /* Predicted mem_addr */
+	int nof_entires; /* Last time called */
+	int last_evicted;
+} Predictor_row;
+
+typedef struct {
+	Addr mem_addr;
+	Predictor_entry *next;
+} Predictor_entry;
 
 
 /*
