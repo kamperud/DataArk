@@ -5,6 +5,18 @@
  */
 
 #include "interface.hh"
+#include <stdlib.h>
+
+ struct Predictor_entry {
+    Addr mem_addr;
+    Predictor_entry *next;
+};
+
+typedef struct {
+    Predictor_entry *first; /* Predicted mem_addr */
+    int nof_entries; /* Last time called */
+    int last_evicted;
+} Predictor_row;
 
 #define PRED_TABLE_MAX_SIZE 100
 #define PRED_TABLE_ROW_SIZE 5
@@ -14,7 +26,7 @@ static std::map<Addr, Predictor_row*> predictor_table;
 void insert_predictor_table(Addr mem_addr, Addr prev_pc) {
     std::map<Addr, Predictor_row*>::iterator it;
     it = predictor_table.find(prev_pc);
-    if (predictor_table.size >= PRED_TABLE_MAX_SIZE)
+    if (predictor_table.size() >= PRED_TABLE_MAX_SIZE)
         return;
     else if (it == predictor_table.end()) {
         Predictor_entry *entry = (Predictor_entry*)malloc(sizeof(Predictor_entry));
@@ -77,6 +89,17 @@ void prefetch_access(AccessStat stat)
         insert_predictor_table(stat.mem_addr, prev_pc);
         prev_pc = stat.pc;
     }
+    // std::map<Addr, Predictor_row*>::iterator it;
+    // it = predictor_table.find(stat.pc);
+    // if (it != predictor_table.end()) {
+    //     Predictor_row *row = it->second;
+    //     Predictor_entry *entry = row->first;
+    //     for (int i = 0; i < row->nof_entries; i++) {
+    //         if (!in_cache(entry->mem_addr)) 
+    //             issue_prefetch(entry->mem_addr);
+    //         entry = entry->next;
+    //     }
+    // }
     /* pf_addr is now an address within the _next_ cache block */
     Addr pf_addr = stat.mem_addr + BLOCK_SIZE;
 

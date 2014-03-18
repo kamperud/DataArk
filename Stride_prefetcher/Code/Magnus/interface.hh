@@ -31,7 +31,7 @@
 /* M5 note: must match typedefs in in base/types.hh */
 typedef uint64_t Addr;
 typedef int64_t Tick;
-
+typedef struct Predictor_entry Predictor_entry;
 
 /*
  * This is the information provided to the prefetcher on each call to
@@ -44,16 +44,17 @@ struct AccessStat {
     int miss;       /* Was this demand access a cache hit (0) or miss (1)? */
 };
 
+struct Predictor_entry {
+	Addr mem_addr;
+	Predictor_entry *next;
+};
+
 typedef struct {
 	Predictor_entry *first; /* Predicted mem_addr */
-	int nof_entires; /* Last time called */
+	int nof_entries; /* Last time called */
 	int last_evicted;
 } Predictor_row;
 
-typedef struct {
-	Addr mem_addr;
-	Predictor_entry *next;
-} Predictor_entry;
 
 
 /*
