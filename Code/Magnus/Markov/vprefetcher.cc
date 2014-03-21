@@ -57,7 +57,7 @@ void insert_pred_table(Addr index, Addr predictor) {
                 else if (j == nof_preds -1) {
                     pred_table[i].predictors.insert(pred_table[i].predictors.begin(), predictor);
                     if (nof_preds > MAX_NOF_PREDICTORS) {
-                        pred_table[i].predictors.erase(nof_preds);
+                        pred_table[i].predictors.erase(pred_table[i].predictors.end());
                     }
                 }
             }
@@ -76,7 +76,7 @@ void insert_pred_table(Addr index, Addr predictor) {
             new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
             pred_table.insert(pred_table.begin(), new_entry);
             if (pred_table.size() >= PRED_TABLE_MAX_SIZE) {
-                pred_table.erase(PRED_TABLE_MAX_SIZE);
+                pred_table.erase(pred_table.end());
             } 
         }
     }
