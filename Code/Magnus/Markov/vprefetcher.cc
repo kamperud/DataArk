@@ -87,12 +87,12 @@ void prefetch_access(AccessStat stat)
     static Addr prev_mem_miss;
 
     if (pred_table.empty()) {
-        insert_pred_table(stat.mem_addr, stat.mem_addr + BLOCK_SIZE);
-        prev_mem_miss = stat.mem_addr;
+        insert_pred_table(stat.pc, stat.mem_addr + BLOCK_SIZE);
+        prev_mem_miss = stat.pc;
     }
     else if (stat.miss) {
         insert_pred_table(prev_mem_miss, stat.mem_addr);
-        prev_mem_miss = stat.mem_addr;
+        prev_mem_miss = stat.pc;
     }
     for (int i = 0; i < pred_table.size(); i++) {
         if (stat.mem_addr == pred_table[i].index_addr) {
