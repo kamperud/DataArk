@@ -33,16 +33,21 @@ void prefetch_init(void)
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
+
 void insert_pred_table(Addr index, Addr predictor) {
 
-     DPRINTF(HWPrefetch, "Inserting stuff\n");
-    
+    if (pred_table.size() == 0) {   
+        Predictor_entry new_entry;
+        new_entry.index_addr = index;
+        new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
+        pred_table.insert(pred_table.begin(), new_entry);
+        return; 
+    }
     /** 
         See if index is already in the predictor table. 
         If so, move in front                        
      **/
     for (int i = 0; i < pred_table.size(); i++) {
-
         if (pred_table[i].index_addr == index) {
             /** 
                 See if the predictor is already predicted. 
@@ -59,27 +64,30 @@ void insert_pred_table(Addr index, Addr predictor) {
                 else if (j == nof_preds -1) {
                     pred_table[i].predictors.insert(pred_table[i].predictors.begin(), predictor);
                     if (nof_preds > MAX_NOF_PREDICTORS) {
-                        pred_table[i].predictors.erase(pred_table[i].predictors.end());
+                        pred_table[i].predictors.erase(pred_table[i].predictors.end()-1);
                     }
                 }
             }
+
+            /* Put the recently used index in front of the queue */
             Predictor_entry temp = pred_table[0];
             pred_table[0] = pred_table[i];
             pred_table[i] = temp;
                     
 
-            break;
+            return;
 
         }
         /** Was not already in table, insert it **/
-        else if (i == pred_table.size() -1) {
+        else if (i == (pred_table.size()-1)) {
             Predictor_entry new_entry;
             new_entry.index_addr = index;
             new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
             pred_table.insert(pred_table.begin(), new_entry);
-            if (pred_table.size() >= PRED_TABLE_MAX_SIZE) {
-                pred_table.erase(pred_table.end());
-            } 
+            if (pred_table.size() > PRED_TABLE_MAX_SIZE) {
+                pred_table.erase(pred_table.end()-1);
+            }
+            return; 
         }
     }
 }
