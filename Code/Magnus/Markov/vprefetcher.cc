@@ -34,6 +34,8 @@ void prefetch_init(void)
 }
 
 void insert_pred_table(Addr index, Addr predictor) {
+
+     DPRINTF(HWPrefetch, "Inserting stuff\n");
     
     /** 
         See if index is already in the predictor table. 
