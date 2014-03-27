@@ -7,10 +7,11 @@
 #include "interface.hh"
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
 
 struct Predictor_entry {
     Addr index_addr;
-    std::vector<int64_t> predictors;
+    std::vector<Addr> predictors;
 };
 
 // typedef struct {
@@ -19,8 +20,8 @@ struct Predictor_entry {
 //     int last_evicted;
 // } Predictor_row;
 
-#define PRED_TABLE_MAX_SIZE 16
-#define MAX_NOF_PREDICTORS 4
+#define PRED_TABLE_MAX_SIZE 2
+#define MAX_NOF_PREDICTORS 2
 
 static std::vector<Predictor_entry> pred_table;
 
@@ -30,10 +31,9 @@ void prefetch_init(void)
 {
     /* Called before any calls to prefetch_access. */
     /* This is the place to initialize data structures. */
-    DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
-void insert_pred_table(Addr index, int predictor) {
+void insert_pred_table(Addr index, Addr predictor) {
 
     if (pred_table.size() == 0) {   
         Predictor_entry new_entry;
@@ -91,30 +91,21 @@ void insert_pred_table(Addr index, int predictor) {
     }
 }
 
-void prefetch_access(AccessStat stat)
-{
-    static Addr prev_mem_addr;
-    static Addr prev_pc;
+int main () {
 
-    if (pred_table.empty()) {
-        insert_pred_table(stat.pc, (int)stat.mem_addr - (int)prev_mem_addr);
-    }
-    else if (stat.miss) {
-        insert_pred_table(prev_pc, (int)stat.mem_addr - (int)prev_mem_addr);
-    }
-    prev_mem_addr = stat.mem_addr;
-    prev_pc = stat.pc;
-    for (int i = 0; i < pred_table.size(); i++) {
-        if (stat.pc == pred_table[i].index_addr) {
-            for (int j = 0; j < pred_table[i].predictors.size(); j++)
-                if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
-                    issue_prefetch(stat.mem_addr + pred_table[i].predictors[j]);
+    Addr pc = 5;
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 16; j++) {
+            insert_pred_table(j, i);
+            
         }
     }
-}
+    for (int j = 0; j < pred_table.size(); j++) {
+        std::cout << "Index: " << pred_table[j].index_addr << "\n";
+        for (int i = 0; i < pred_table[j].predictors.size(); i++) {
+            std::cout << pred_table[j].predictors[i] << "\n";
+        }
+    }
 
-void prefetch_complete(Addr addr) {
-    /*
-     * Called when a block requested by the prefetcher has been loaded.
-     */
+    return 1;
 }

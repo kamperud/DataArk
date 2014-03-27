@@ -9,20 +9,58 @@
 #include <vector>
 
 struct Predictor_entry {
-    Addr index_addr;
-    std::vector<int64_t> predictors;
+    Addr pc_addr;
+    int displacement;
+    Predictor_entry *next_entry;
 };
 
-// typedef struct {
+struct Index_entry {
+    Addr index;
+    Addr displacement;
+    Predictor_entry *ghb_entry;
+};
+
+class GHB {
+    Predictor_entry *head;
+    int current_index;
+    int size;
+
+public:
+    GHB(int size);
+    ~GHB();
+    Predictor_entry* insert(Predictor_entry entry);
+
+};
+
+GHB::GHB (int size) {
+    head = (Predictor_entry*)malloc(sizeof(Predictor_entry)*size));
+    last_index = size-1;
+    current_index = 0;
+    
+}
+GHB::~GHB() {free(head);}
+
+Predictor_entry* GHB::insert(Addr pc, int displacement, Predictor_entry *prev_entry) {
+    if ()
+
+    head[current_index] = entry;
+    if (current_index == last_index) current_index = 0;
+    else current_index++;
+    return &head[current_index];
+
+}
 //     Predictor_entry *first; /* Predicted mem_addr */
 //     int nof_entries; /* Last time called */
 //     int last_evicted;
 // } Predictor_row;
 
-#define PRED_TABLE_MAX_SIZE 16
-#define MAX_NOF_PREDICTORS 4
+#define GHB_SIZE 64
+#define MAX_NOF_PREDICTORS 2
 
-static std::vector<Predictor_entry> pred_table;
+static std::vector<Index_entry> index_table;
+
+
+
 
 
 
@@ -33,7 +71,8 @@ void prefetch_init(void)
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
-void insert_pred_table(Addr index, int predictor) {
+
+void insert_pred_table(Addr index, Addr predictor) {
 
     if (pred_table.size() == 0) {   
         Predictor_entry new_entry;
@@ -93,22 +132,20 @@ void insert_pred_table(Addr index, int predictor) {
 
 void prefetch_access(AccessStat stat)
 {
-    static Addr prev_mem_addr;
-    static Addr prev_pc;
+    static Addr prev_mem_miss;
 
     if (pred_table.empty()) {
-        insert_pred_table(stat.pc, (int)stat.mem_addr - (int)prev_mem_addr);
+        insert_pred_table(stat.pc, stat.mem_addr + BLOCK_SIZE);
     }
-    else if (stat.miss) {
-        insert_pred_table(prev_pc, (int)stat.mem_addr - (int)prev_mem_addr);
+    else {
+        insert_pred_table(prev_mem_miss, stat.mem_addr);
     }
-    prev_mem_addr = stat.mem_addr;
-    prev_pc = stat.pc;
+    prev_mem_miss = stat.pc;
     for (int i = 0; i < pred_table.size(); i++) {
         if (stat.pc == pred_table[i].index_addr) {
             for (int j = 0; j < pred_table[i].predictors.size(); j++)
                 if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
-                    issue_prefetch(stat.mem_addr + pred_table[i].predictors[j]);
+                    issue_prefetch(pred_table[i].predictors[j]);
         }
     }
 }

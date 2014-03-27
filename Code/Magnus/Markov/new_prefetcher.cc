@@ -10,7 +10,7 @@
 
 struct Predictor_entry {
     Addr index_addr;
-    std::vector<int64_t> predictors;
+    std::vector<Addr> predictors;
 };
 
 // typedef struct {
@@ -19,7 +19,7 @@ struct Predictor_entry {
 //     int last_evicted;
 // } Predictor_row;
 
-#define PRED_TABLE_MAX_SIZE 16
+#define PRED_TABLE_MAX_SIZE 32
 #define MAX_NOF_PREDICTORS 4
 
 static std::vector<Predictor_entry> pred_table;
@@ -33,7 +33,8 @@ void prefetch_init(void)
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
-void insert_pred_table(Addr index, int predictor) {
+
+void insert_pred_table(Addr index, Addr predictor) {
 
     if (pred_table.size() == 0) {   
         Predictor_entry new_entry;
@@ -93,22 +94,20 @@ void insert_pred_table(Addr index, int predictor) {
 
 void prefetch_access(AccessStat stat)
 {
-    static Addr prev_mem_addr;
-    static Addr prev_pc;
+    static Addr prev_mem_miss;
 
     if (pred_table.empty()) {
-        insert_pred_table(stat.pc, (int)stat.mem_addr - (int)prev_mem_addr);
+        insert_pred_table(stat.pc, stat.mem_addr + BLOCK_SIZE);
     }
-    else if (stat.miss) {
-        insert_pred_table(prev_pc, (int)stat.mem_addr - (int)prev_mem_addr);
+    else {
+        insert_pred_table(prev_mem_miss, stat.mem_addr);
     }
-    prev_mem_addr = stat.mem_addr;
-    prev_pc = stat.pc;
+    prev_mem_miss = stat.pc;
     for (int i = 0; i < pred_table.size(); i++) {
         if (stat.pc == pred_table[i].index_addr) {
             for (int j = 0; j < pred_table[i].predictors.size(); j++)
                 if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
-                    issue_prefetch(stat.mem_addr + pred_table[i].predictors[j]);
+                    issue_prefetch(pred_table[i].predictors[j]);
         }
     }
 }
