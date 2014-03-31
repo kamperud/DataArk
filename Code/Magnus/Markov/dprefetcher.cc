@@ -101,7 +101,7 @@ void prefetch_access(AccessStat stat)
         insert_pred_table(stat.pc, stat.mem_addr - prev_mem_addr);
     }
     else if (stat.miss) {
-        insert_pred_table(prev_pc, stat.mem_addr - prev_mem_addr));
+        insert_pred_table(prev_pc, stat.mem_addr - prev_mem_addr);
     }
     prev_mem_addr = stat.mem_addr;
     prev_pc = stat.pc;
