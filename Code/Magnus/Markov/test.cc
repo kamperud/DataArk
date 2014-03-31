@@ -10,20 +10,17 @@
 #include <iostream>
 
 struct Predictor_entry {
-    Addr index_addr;
-    std::vector<Addr> predictors;
+    Addr pc;
+    int64_t displacement;
 };
 
-// typedef struct {
-//     Predictor_entry *first; /* Predicted mem_addr */
-//     int nof_entries; /* Last time called */
-//     int last_evicted;
-// } Predictor_row;
-
-#define PRED_TABLE_MAX_SIZE 2
+#define GHB_SIZE 32
 #define MAX_NOF_PREDICTORS 2
 
-static std::vector<Predictor_entry> pred_table;
+static std::vector<Predictor_entry> GHB;
+
+
+
 
 
 
@@ -31,81 +28,84 @@ void prefetch_init(void)
 {
     /* Called before any calls to prefetch_access. */
     /* This is the place to initialize data structures. */
+    //DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
-void insert_pred_table(Addr index, Addr predictor) {
 
-    if (pred_table.size() == 0) {   
-        Predictor_entry new_entry;
-        new_entry.index_addr = index;
-        new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
-        pred_table.insert(pred_table.begin(), new_entry);
-        return; 
+void insert_GHB(Addr pc, int displacement) {
+    
+    Predictor_entry new_entry;
+    new_entry.pc = pc;
+    new_entry.displacement = displacement;
+
+    GHB.insert(GHB.begin(), new_entry);
+    if (GHB.size() > GHB_SIZE) {
+        GHB.erase(GHB.end()-1);
     }
-    /** 
-        See if index is already in the predictor table. 
-        If so, move in front                        
-     **/
-    for (int i = 0; i < pred_table.size(); i++) {
-        if (pred_table[i].index_addr == index) {
-            /** 
-                See if the predictor is already predicted. 
-                If so, move in front 
-            **/
-            int nof_preds = pred_table[i].predictors.size();
-            for (int j = 0; j < nof_preds; j++) {
-                if (pred_table[i].predictors[j] == predictor) {
-                    Addr temp = pred_table[i].predictors[0];
-                    pred_table[i].predictors[0] = pred_table[i].predictors[j];
-                    pred_table[i].predictors[j] = temp;
-                    break;
-                }
-                else if (j == nof_preds -1) {
-                    pred_table[i].predictors.insert(pred_table[i].predictors.begin(), predictor);
-                    if (nof_preds > MAX_NOF_PREDICTORS) {
-                        pred_table[i].predictors.erase(pred_table[i].predictors.end()-1);
-                    }
-                }
+}
+
+void prefetch_access(AccessStat stat)
+{
+    static Addr prev_mem;
+    static Addr prev_pc;
+    for (int i = GHB.size()-1; i >= 0; i--) {
+        if (stat.pc == GHB[i].pc) {
+            Addr next_addr = stat.mem_addr;
+            for (int j = 1; j <= MAX_NOF_PREDICTORS; j++) {
+                if (i - j < 0) break;
+                Addr prefetch_addr = GHB[i - j].displacement + next_addr;
+                //if (!in_cache(prefetch_addr) && !in_mshr_queue(prefetch_addr))
+                        std::cout << "PC: " << stat.pc << ". Addr: " << prefetch_addr << "\n";
+                next_addr = prefetch_addr;
             }
-
-            /* Put the recently used index in front of the queue */
-            Predictor_entry temp = pred_table[0];
-            pred_table[0] = pred_table[i];
-            pred_table[i] = temp;
-                    
-
-            return;
-
-        }
-        /** Was not already in table, insert it **/
-        else if (i == (pred_table.size()-1)) {
-            Predictor_entry new_entry;
-            new_entry.index_addr = index;
-            new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
-            pred_table.insert(pred_table.begin(), new_entry);
-            if (pred_table.size() > PRED_TABLE_MAX_SIZE) {
-                pred_table.erase(pred_table.end()-1);
-            }
-            return; 
         }
     }
+
+    if (GHB.empty()) {
+        insert_GHB(stat.pc, BLOCK_SIZE);
+    }
+    else {
+        int64_t temp= stat.mem_addr;
+        int64_t temp2 = prev_mem;
+        insert_GHB(prev_pc, temp - temp2);
+    }
+    prev_pc = stat.pc;
+    prev_mem = stat.mem_addr;
+    
+}
+
+
+
+void prefetch_complete(Addr addr) {
+    /*
+     * Called when a block requested by the prefetcher has been loaded.
+     */
 }
 
 int main () {
 
-    Addr pc = 5;
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 16; j++) {
-            insert_pred_table(j, i);
+    Addr stride = 5;
+    for (int i = 0; i < 32; i++) {
+        AccessStat stat;
+        stat.pc = i;        /* The address of the instruction that caused the access */
+        stat.mem_addr = i;  /* The memory address that was requested */
+        stat.time = 0;      /* The simulator time cycle when the request was sent */
+        stat.miss = 1;       /* Was this demand access a cache hit (0) or miss (1)? */
+        prefetch_access(stat);
             
-        }
     }
-    for (int j = 0; j < pred_table.size(); j++) {
-        std::cout << "Index: " << pred_table[j].index_addr << "\n";
-        for (int i = 0; i < pred_table[j].predictors.size(); i++) {
-            std::cout << pred_table[j].predictors[i] << "\n";
-        }
+    for (int i = 0; i < 100; i++) {
+        AccessStat stat;
+        stat.pc = i;        /* The address of the instruction that caused the access */
+        stat.mem_addr = i;  /* The memory address that was requested */
+        stat.time = 0;      /* The simulator time cycle when the request was sent */
+        stat.miss = 1;       /* Was this demand access a cache hit (0) or miss (1)? */
+        prefetch_access(stat);
+            
     }
-
+    // for (int j = 0; j < GHB.size(); j++) {
+    //     std::cout << "Index: " << GHB[j].pc << ". Displacement: " << GHB[j].displacement << "\n";
+    // }
+    // std::cout << "Size: " << sizeof(std::vector<Predictor_entry>) + (sizeof(Predictor_entry) * GHB.size()) << "\n";
     return 1;
 }
