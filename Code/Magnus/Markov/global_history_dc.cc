@@ -9,7 +9,7 @@
 #include <vector>
 
 struct Predictor_entry {
-    Addr pc_addr;
+    Addr pc;
     int displacement;
 };
 
