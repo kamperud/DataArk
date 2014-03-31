@@ -28,7 +28,8 @@ class GHB {
 public:
     GHB(int size);
     ~GHB();
-    Predictor_entry* insert(Predictor_entry entry);
+    int insert(Predictor_entry entry);
+    Predictor_entry* getEntry(int index)
 
 };
 
@@ -41,7 +42,7 @@ GHB::GHB (int size) {
 GHB::~GHB() {free(head);}
 
 Predictor_entry* GHB::insert(Addr pc, int displacement, Predictor_entry *prev_entry) {
-    if ()
+    Predictor_entry *new_entry;
 
     head[current_index] = entry;
     if (current_index == last_index) current_index = 0;

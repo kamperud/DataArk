@@ -7,10 +7,11 @@
 #include "interface.hh"
 #include <stdlib.h>
 #include <vector>
+#include <cmath>
 
 struct Predictor_entry {
     Addr index_addr;
-    std::vector<int64_t> predictors;
+    std::vector<int> predictors;
 };
 
 // typedef struct {
@@ -20,7 +21,7 @@ struct Predictor_entry {
 // } Predictor_row;
 
 #define PRED_TABLE_MAX_SIZE 16
-#define MAX_NOF_PREDICTORS 4
+#define MAX_NOF_PREDICTORS 3
 
 static std::vector<Predictor_entry> pred_table;
 
@@ -97,18 +98,20 @@ void prefetch_access(AccessStat stat)
     static Addr prev_pc;
 
     if (pred_table.empty()) {
-        insert_pred_table(stat.pc, (int)stat.mem_addr - (int)prev_mem_addr);
+        insert_pred_table(stat.pc, stat.mem_addr - prev_mem_addr);
     }
     else if (stat.miss) {
-        insert_pred_table(prev_pc, (int)stat.mem_addr - (int)prev_mem_addr);
+        insert_pred_table(prev_pc, stat.mem_addr - prev_mem_addr));
     }
     prev_mem_addr = stat.mem_addr;
     prev_pc = stat.pc;
     for (int i = 0; i < pred_table.size(); i++) {
         if (stat.pc == pred_table[i].index_addr) {
-            for (int j = 0; j < pred_table[i].predictors.size(); j++)
-                if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
-                    issue_prefetch(stat.mem_addr + pred_table[i].predictors[j]);
+            for (int j = 0; j < pred_table[i].predictors.size(); j++) {
+                int prefetch_addr = stat.mem_addr + pred_table[i].predictors[j];
+                if (!in_cache(prefetch_addr) && !in_mshr_queue(prefetch_addr))
+                    issue_prefetch(prefetch_addr);
+            }
         }
     }
 }
