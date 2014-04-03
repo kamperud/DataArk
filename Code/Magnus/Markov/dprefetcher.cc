@@ -8,15 +8,15 @@
 #include <stdlib.h>
 #include <vector>
 
+struct Predictor {
+    Addr mem_addr;
+    int seen_before;
+};
+
 struct Predictor_entry {
     Addr index_addr;
     std::vector<Predictor> predictors;
 
-};
-
-struct Predictor {
-    Addr mem_addr;
-    int seen_before;
 };
 
 // typedef struct {
@@ -46,8 +46,8 @@ void insert_pred_table(Addr index, Addr mem_addr) {
         Predictor_entry new_entry;
         new_entry.index_addr = index;
         Predictor predictor;
-        pred.mem_addr = mem_addr;
-        pred.seen_before = 0;
+        predictor.mem_addr = mem_addr;
+        predictor.seen_before = 0;
         new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
         pred_table.insert(pred_table.begin(), new_entry);
         return; 
@@ -66,15 +66,15 @@ void insert_pred_table(Addr index, Addr mem_addr) {
             for (int j = 0; j < nof_preds; j++) {
                 if (pred_table[i].predictors[j].mem_addr == mem_addr) {
                     pred_table[i].predictors[j].seen_before = 1;
-                    Addr temp = pred_table[i].predictors[0];
+                    Predictor temp = pred_table[i].predictors[0];
                     pred_table[i].predictors[0] = pred_table[i].predictors[j];
                     pred_table[i].predictors[j] = temp;
                     break;
                 }
                 else if (j == nof_preds -1) {
                     Predictor predictor;
-                    pred.mem_addr = mem_addr;
-                    pred.seen_before = 0; 
+                    predictor.mem_addr = mem_addr;
+                    predictor.seen_before = 0; 
                     pred_table[i].predictors.insert(pred_table[i].predictors.begin(), predictor);
                     if (nof_preds > MAX_NOF_PREDICTORS) {
                         pred_table[i].predictors.erase(pred_table[i].predictors.end()-1);
@@ -96,8 +96,8 @@ void insert_pred_table(Addr index, Addr mem_addr) {
             Predictor_entry new_entry;
             new_entry.index_addr = index;
             Predictor predictor;
-            pred.mem_addr = mem_addr;
-            pred.seen_before = 0;
+            predictor.mem_addr = mem_addr;
+            predictor.seen_before = 0;
             new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
             pred_table.insert(pred_table.begin(), new_entry);
             if (pred_table.size() > PRED_TABLE_MAX_SIZE) {
@@ -122,8 +122,9 @@ void prefetch_access(AccessStat stat)
     for (int i = 0; i < pred_table.size(); i++) {
         if (stat.mem_addr == pred_table[i].index_addr) {
             for (int j = 0; j < pred_table[i].predictors.size(); j++) {
-                if (pred_table[i].predictors[j].seen_before != 0 && 
-                    !in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
+                if ((pred_table[i].predictors[j].seen_before != 0) && 
+                    !in_cache(pred_table[i].predictors[j].mem_addr) && 
+                    !in_mshr_queue(pred_table[i].predictors[j].mem_addr))
                     issue_prefetch(pred_table[i].predictors[j].mem_addr);
             }
         }
