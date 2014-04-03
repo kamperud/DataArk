@@ -7,11 +7,16 @@
 #include "interface.hh"
 #include <stdlib.h>
 #include <vector>
-#include <cmath>
 
 struct Predictor_entry {
     Addr index_addr;
-    std::vector<int> predictors;
+    std::vector<Predictor> predictors;
+
+};
+
+struct Predictor {
+    Addr mem_addr;
+    int seen_before;
 };
 
 // typedef struct {
@@ -20,8 +25,8 @@ struct Predictor_entry {
 //     int last_evicted;
 // } Predictor_row;
 
-#define PRED_TABLE_MAX_SIZE 16
-#define MAX_NOF_PREDICTORS 3
+#define PRED_TABLE_MAX_SIZE 32
+#define MAX_NOF_PREDICTORS 2
 
 static std::vector<Predictor_entry> pred_table;
 
@@ -34,11 +39,15 @@ void prefetch_init(void)
     DPRINTF(HWPrefetch, "Initialized sequential-on-access prefetcher\n");
 }
 
-void insert_pred_table(Addr index, int predictor) {
+
+void insert_pred_table(Addr index, Addr mem_addr) {
 
     if (pred_table.size() == 0) {   
         Predictor_entry new_entry;
         new_entry.index_addr = index;
+        Predictor predictor;
+        pred.mem_addr = mem_addr;
+        pred.seen_before = 0;
         new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
         pred_table.insert(pred_table.begin(), new_entry);
         return; 
@@ -55,13 +64,17 @@ void insert_pred_table(Addr index, int predictor) {
             **/
             int nof_preds = pred_table[i].predictors.size();
             for (int j = 0; j < nof_preds; j++) {
-                if (pred_table[i].predictors[j] == predictor) {
+                if (pred_table[i].predictors[j].mem_addr == mem_addr) {
+                    pred_table[i].predictors[j].seen_before = 1;
                     Addr temp = pred_table[i].predictors[0];
                     pred_table[i].predictors[0] = pred_table[i].predictors[j];
                     pred_table[i].predictors[j] = temp;
                     break;
                 }
                 else if (j == nof_preds -1) {
+                    Predictor predictor;
+                    pred.mem_addr = mem_addr;
+                    pred.seen_before = 0; 
                     pred_table[i].predictors.insert(pred_table[i].predictors.begin(), predictor);
                     if (nof_preds > MAX_NOF_PREDICTORS) {
                         pred_table[i].predictors.erase(pred_table[i].predictors.end()-1);
@@ -82,6 +95,9 @@ void insert_pred_table(Addr index, int predictor) {
         else if (i == (pred_table.size()-1)) {
             Predictor_entry new_entry;
             new_entry.index_addr = index;
+            Predictor predictor;
+            pred.mem_addr = mem_addr;
+            pred.seen_before = 0;
             new_entry.predictors.insert(new_entry.predictors.begin(), predictor);
             pred_table.insert(pred_table.begin(), new_entry);
             if (pred_table.size() > PRED_TABLE_MAX_SIZE) {
@@ -94,26 +110,25 @@ void insert_pred_table(Addr index, int predictor) {
 
 void prefetch_access(AccessStat stat)
 {
-    static Addr prev_mem_addr;
-    static Addr prev_pc;
+    static Addr prev_mem_miss;
 
     if (pred_table.empty()) {
-        insert_pred_table(stat.pc, stat.mem_addr - prev_mem_addr);
+        insert_pred_table(stat.mem_addr, stat.mem_addr + BLOCK_SIZE);
     }
-    else if (stat.miss) {
-        insert_pred_table(prev_pc, stat.mem_addr - prev_mem_addr);
+    else {
+        insert_pred_table(prev_mem_miss, stat.mem_addr);
     }
-    prev_mem_addr = stat.mem_addr;
-    prev_pc = stat.pc;
+    prev_mem_miss = stat.mem_addr;
     for (int i = 0; i < pred_table.size(); i++) {
-        if (stat.pc == pred_table[i].index_addr) {
+        if (stat.mem_addr == pred_table[i].index_addr) {
             for (int j = 0; j < pred_table[i].predictors.size(); j++) {
-                int prefetch_addr = stat.mem_addr + pred_table[i].predictors[j];
-                if (!in_cache(prefetch_addr) && !in_mshr_queue(prefetch_addr))
-                    issue_prefetch(prefetch_addr);
+                if (pred_table[i].predictors[j].seen_before != 0 && 
+                    !in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
+                    issue_prefetch(pred_table[i].predictors[j].mem_addr);
             }
         }
     }
+    
 }
 
 void prefetch_complete(Addr addr) {

@@ -13,8 +13,8 @@ struct Predictor_entry {
     int64_t displacement;
 };
 
-#define GHB_SIZE 16
-#define MAX_NOF_PREDICTORS 2
+#define GHB_SIZE 32
+#define MAX_NOF_PREDICTORS 8
 
 static std::vector<Predictor_entry> GHB;
 
@@ -31,7 +31,7 @@ void prefetch_init(void)
 }
 
 
-void insert_GHB(Addr pc, int displacement) {
+void insert_GHB(Addr pc, int64_t displacement) {
     
     Predictor_entry new_entry;
     new_entry.pc = pc;
@@ -46,19 +46,7 @@ void prefetch_access(AccessStat stat)
 {
     static Addr prev_mem;
     static Addr prev_pc;
-    issue_prefetch(MAX_PHYS_MEM_ADDR + 100);
-    for (int i = GHB.size()-1; i >= 0; i--) {
-        if (stat.pc == GHB[i].pc) {
-            Addr next_addr = stat.mem_addr;
-            for (int j = 1; j <= MAX_NOF_PREDICTORS; j++) {
-                if (i - j < 0) break;
-                Addr prefetch_addr = GHB[i - j].displacement + next_addr;
-                if (prefetch_addr < MAX_PHYS_MEM_ADDR && !in_cache(prefetch_addr) && !in_mshr_queue(prefetch_addr))
-                        issue_prefetch(prefetch_addr);
-                next_addr = prefetch_addr;
-            }
-        }
-    }
+
     if (GHB.empty()) {
         insert_GHB(stat.pc, BLOCK_SIZE);
     }  
@@ -67,6 +55,22 @@ void prefetch_access(AccessStat stat)
     }
     prev_pc = stat.pc;
     prev_mem = stat.mem_addr;
+    
+    if (stat.miss) {
+        for (int i = GHB.size()-1; i >= 0; i--) {
+            if (stat.pc == GHB[i].pc) {
+                Addr next_addr = stat.mem_addr;
+                for (int j = 1; j <= MAX_NOF_PREDICTORS; j++) {
+                    if (i - j < 0) break;
+                    Addr prefetch_addr = GHB[i - j].displacement + next_addr;
+                    if (prefetch_addr >= 0 && prefetch_addr < MAX_PHYS_MEM_ADDR && !in_cache(prefetch_addr) && !in_mshr_queue(prefetch_addr))
+                            issue_prefetch(prefetch_addr);
+                    next_addr = prefetch_addr;
+                }
+            }
+        }
+    }
+    
 }
 
 void prefetch_complete(Addr addr) {
