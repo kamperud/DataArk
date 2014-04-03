@@ -20,7 +20,8 @@ struct Predictor_entry {
 // } Predictor_row;
 
 #define PRED_TABLE_MAX_SIZE 32
-#define MAX_NOF_PREDICTORS 2
+#define MAX_NOF_PREDICTORS 8
+#define NOF_PREDICTIONS 4
 
 static std::vector<Predictor_entry> pred_table;
 
@@ -92,6 +93,23 @@ void insert_pred_table(Addr index, Addr predictor) {
     }
 }
 
+void prefetch(Address addr, int nofTimes) {
+    if (nofTimes == 0) return;
+    else {
+        for (int i = 0; i < pred_table.size(); i++) {
+            if (addr == pred_table[i].index_addr) {
+                for (int j = 0; j < pred_table[i].predictors.size(); j++) {
+                    if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j])) {
+                        issue_prefetch(pred_table[i].predictors[j]);
+                        nofTimes--;
+                        prefetch(pred_table[i].predictors[j], nofTimes);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
 void prefetch_access(AccessStat stat)
 {
     static Addr prev_mem_miss;
@@ -103,17 +121,10 @@ void prefetch_access(AccessStat stat)
         insert_pred_table(prev_mem_miss, stat.mem_addr);
     }
     prev_mem_miss = stat.mem_addr;
-    if (stat.miss) {
-        for (int i = 0; i < pred_table.size(); i++) {
-            if (stat.mem_addr == pred_table[i].index_addr) {
-                for (int j = 0; j < pred_table[i].predictors.size(); j++) {
-                    if (!in_cache(pred_table[i].predictors[j]) && !in_mshr_queue(pred_table[i].predictors[j]))
-                        issue_prefetch(pred_table[i].predictors[j]);
-                }
-            }
-        }
-    }
+    prefetch(stat.mem_addr, NOF_PREDICTIONS);
+    
 }
+
 
 void prefetch_complete(Addr addr) {
     /*

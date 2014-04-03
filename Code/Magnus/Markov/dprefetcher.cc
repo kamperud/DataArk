@@ -25,8 +25,9 @@ struct Predictor_entry {
 //     int last_evicted;
 // } Predictor_row;
 
-#define PRED_TABLE_MAX_SIZE 32
-#define MAX_NOF_PREDICTORS 2
+#define PRED_TABLE_MAX_SIZE 64
+#define MAX_NOF_PREDICTORS 4
+#define NOF_PREDICTIONS 8
 
 static std::vector<Predictor_entry> pred_table;
 
@@ -119,17 +120,28 @@ void prefetch_access(AccessStat stat)
         insert_pred_table(prev_mem_miss, stat.mem_addr);
     }
     prev_mem_miss = stat.mem_addr;
-    for (int i = 0; i < pred_table.size(); i++) {
-        if (stat.mem_addr == pred_table[i].index_addr) {
-            for (int j = 0; j < pred_table[i].predictors.size(); j++) {
-                if ((pred_table[i].predictors[j].seen_before != 0) && 
-                    !in_cache(pred_table[i].predictors[j].mem_addr) && 
-                    !in_mshr_queue(pred_table[i].predictors[j].mem_addr))
-                    issue_prefetch(pred_table[i].predictors[j].mem_addr);
+    prefetch(stat.mem_addr, NOF_PREDICTIONS);
+    
+}
+
+void prefetch(Address addr, int nofTimes) {
+    if (nofTimes == 0) return;
+    else {
+        for (int i = 0; i < pred_table.size(); i++) {
+            if (addr == pred_table[i].index_addr) {
+                for (int j = 0; j < pred_table[i].predictors.size(); j++) {
+                    if ((pred_table[i].predictors[j].seen_before != 0) && 
+                        !in_cache(pred_table[i].predictors[j].mem_addr) && 
+                        !in_mshr_queue(pred_table[i].predictors[j].mem_addr)) {
+                            issue_prefetch(pred_table[i].predictors[j].mem_addr);
+                            nofTimes--;
+                            prefetch(pred_table[i].predictors[j].mem_addr, nofTimes);
+                            return;
+                    }
+                }
             }
         }
     }
-    
 }
 
 void prefetch_complete(Addr addr) {
